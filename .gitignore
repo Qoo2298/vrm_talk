@@ -1,0 +1,17 @@
+# Environments
+.env
+
+# Ollama data
+ollama/
+
+# COEIROINK data (contains large models)
+COEIROINK-with-Docker/
+
+# Python
+__pycache__/
+*.pyc
+
+# Shisaku outputs
+shisaku/outputs/
+shisaku/chat_history.txt
+

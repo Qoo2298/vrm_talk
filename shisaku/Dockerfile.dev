@@ -1,0 +1,13 @@
+# 開発用 Dockerfile（ホットリロード対応）
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl
+
+COPY requirements.txt .
+COPY backend/requirements.txt backend/
+RUN pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir -r backend/requirements.txt
+
+# backend配下にapp.pyがある場合はこちらを使用
+CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--reload"]

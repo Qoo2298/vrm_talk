@@ -1,0 +1,213 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AI Avatar – STT / Text → Gemini → COEIROINK → VRM</title>
+  <link rel="stylesheet" href="./style.css?v=rev2" />
+
+  <!-- three / three-vrm / three-vrm-animation をCDNから読み込む（バージョン整合） -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.177.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.177.0/examples/jsm/",
+      "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.min.js",
+      "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.4.2/lib/three-vrm-animation.module.min.js"
+    }
+  }
+  </script>
+</head>
+<body class="auto">
+  <div id="app-frame">
+  <!-- 左上UI：録音開始/停止 -->
+  <div id="ui" style="position:fixed; top:10px; left:10px; z-index:1000;">
+    <button id="recBtn">録音開始</button>
+    <button id="stopBtn" disabled>録音停止</button>
+  </div>
+
+  <!-- VRM Upload Panel -->
+  <div id="vrm-panel" style="
+    position:fixed; top:70px; left:10px; z-index:1000;
+    background:rgba(0,0,0,0.6); color:#fff;
+    padding:8px; border-radius:8px; font-size:12px; max-width:220px;">
+    <div style="margin-bottom:6px;">VRM変更:</div>
+    <input type="file" id="vrmInput" accept=".vrm,model/gltf-binary" style="width:100%; font-size:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:6px;">
+      <button id="vrmReset" type="button" style="flex:1;">デフォルト</button>
+    </div>
+    <div id="vrmStatus" style="margin-top:6px; line-height:1.4;">VRM: 読み込み待ち</div>
+  </div>
+
+  <!-- 追加: 左下 終了パネル -->
+  <div id="exit-panel">
+  <!-- 再生許可ボタンは不要になりました -->
+    <label><input type="checkbox" id="openLog"> 終了時にログを開く</label>
+    <button id="exitBtn">終了</button>
+  </div>
+
+  <!-- 右上モード選択バー＋ステータス -->
+  <div id="style-bar" style="
+    position: fixed; top: 10px; right: 10px; z-index: 1000;
+    background: rgba(0,0,0,0.6); color: #fff;
+    padding: 6px 8px; border-radius: 8px; font-size: 14px;">
+    <label for="styleSelect">モード:</label>
+    <select id="styleSelect">
+      <option value="auto">オート（自動）</option>
+      <option value="1">のーまる (1)</option>
+      <option value="7">いっしょうけんめい (7)</option>
+      <option value="40">ごきげん (40)</option>
+      <option value="45">どやがお (45)</option>
+      <option value="41">ふくれっつら (41)</option>
+      <option value="42">しょんぼり (42)</option>
+      <option value="43">ないしょばなし (43)</option>
+      <option value="44">ひっさつわざ (44)</option>
+      <option value="46">ぬむぬむ (46)</option>
+      <option value="47">ぱじゃまぱーてぃー (47)</option>
+    </select>
+    <div style="margin-top:6px">
+      <label for="chatEngineSelect">会話エンジン:</label>
+      <select id="chatEngineSelect">
+        <option value="cloud" selected>クラウド（Gemini）</option>
+        <option value="local">ローカル（Gemma3:12b）</option>
+        <option value="local4">ローカル（Gemma3:4b）</option>
+      </select>
+    </div>
+    <div id="mode-bar" style="margin-top:6px;">
+      <label for="modeSelect">表示モード:</label>
+      <select id="modeSelect">
+        <option value="auto" selected>自動</option>
+        <option value="pc">PCモード</option>
+        <option value="mobile">スマホモード</option>
+      </select>
+    </div>
+    <div id="autoTtsStatus" style="margin-top:6px; font-size:12px; opacity:0.9;">
+      System: 手動モード中
+    </div>
+  </div>
+
+  <!-- 右下：モーション再生バー -->
+  <div id="motion-bar" style="
+    position: fixed; right: 10px; bottom: 10px; z-index: 1000;
+    background: rgba(0,0,0,0.6); color:#fff; padding:8px; border-radius:8px; font-size:13px;">
+    <label>モーション:
+      <select id="motionSelect">
+  <option value="全身を見せる">全身を見せる</option>
+  <option value="挨拶">挨拶</option>
+  <option value="Vサイン">Vサイン</option>
+  <option value="モデルポーズ">モデルポーズ</option>
+  <option value="回る">回る</option>
+  <option value="屈伸運動">屈伸運動</option>
+  <option value="撃つ">撃つ</option>
+  <option value="首を振る">首を振る</option>
+  <option value="みんなの笑顔で彩る世界">みんなの笑顔で彩る世界</option>
+  <option value="みんな大好き素敵な世界">みんな大好き素敵な世界</option>
+  <option value="気高く可愛く煌めく世界">気高く可愛く煌めく世界</option>
+  <option value="輝んで紡いで繋がる世界">輝んで紡いで繋がる世界</option>
+</select>
+    </label>
+    <button id="motionPlay">再生</button>
+    <button id="motionStop">停止</button>
+    <label><input type="checkbox" id="motionLoop" checked> ループ</label>
+    <label>速度 <input id="motionSpeed" type="range" min="0.25" max="2.0" step="0.05" value="1.0"></label>
+    <div style="margin-top:6px">
+      <input id="motionSeek" type="range" min="0" max="1" step="0.001" value="0">
+      <span id="motion-time"><span id="motionCur">0.00</span> / <span id="motionDur">0.00</span>s</span>
+    </div>
+  </div>
+
+  <!-- モーションの表示/非表示トグル（ワンタップ） -->
+  <button id="motion-toggle" type="button">モーション隠す</button>
+
+  <!-- 再生用オーディオ（口パクに接続） -->
+  <audio id="replyAudio" crossorigin="anonymous" playsinline></audio>
+
+  <!-- VRM用キャンバス -->
+  <canvas id="c"></canvas>
+
+  <!-- 下部テキスト入力 -->
+  <div id="chat-box" style="
+    position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,0.6); padding:8px; border-radius:8px; z-index:1000;">
+    <input type="text" id="chat-input" placeholder="メッセージを入力..." style="width:250px;" />
+    <button id="chat-send">送信</button>
+    <button id="fullscreenToggle" title="全画面切替">全画面</button>
+  </div>
+
+  <!-- Conversation Log -->
+  <div id="chat-log" style="
+    position:fixed; bottom:60px; left:10px; right:10px;
+    max-height:40%; overflow-y:auto;
+    background:rgba(0,0,0,0.4); color:#fff;
+    padding:10px; border-radius:8px; font-size:14px;">
+  </div>
+
+  <!-- Transcript Toggle -->
+  <button id="log-toggle" type="button">セリフ一覧</button>
+
+  <!-- Transcript Modal -->
+  <div id="log-modal">
+    <div class="log-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div>セリフ一覧</div>
+        <button id="log-close" type="button">閉じる</button>
+      </div>
+      <div id="log-list"></div>
+    </div>
+  </div>
+  
+  <!-- 追加: 処理ステップ表示 -->
+  <div id="proc-steps" style="position:fixed; left:10px; top:120px; z-index:1000; background:rgba(0,0,0,0.6); color:#fff; padding:8px; border-radius:8px; font-size:12px; max-width: 200px;">
+  </div>
+
+  <!-- Timer Toggle (visible in minimal UI) -->
+  <button id="timer-toggle" type="button">タイマー非表示</button>
+
+  </div>
+  <!-- Three.js / VRM 制御スクリプト -->
+  <script type="module" src="./main.js?v=rev3"></script>
+
+  <!-- 終了ボタン用スクリプト（main.jsに触らず独立） -->
+  <script>
+    const exitBtn = document.getElementById("exitBtn");
+    const openLog = document.getElementById("openLog");
+    // Inject optional controls: keep COEIROINK + reload
+    const exitPanel = document.getElementById("exit-panel");
+    let keepCoeiro = document.getElementById("keepCoeiro");
+    if (!keepCoeiro && exitPanel) {
+      const wrap = document.createElement("label");
+      wrap.style.marginLeft = "8px";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.id = "keepCoeiro";
+      cb.checked = true;
+      wrap.appendChild(cb);
+      wrap.appendChild(document.createTextNode(" COEIROINKを残す"));
+      exitPanel.insertBefore(wrap, exitBtn);
+      keepCoeiro = cb;
+    }
+    let reloadBtn = document.getElementById("reloadBtn");
+    if (!reloadBtn && exitPanel) {
+      const btn = document.createElement("button");
+      btn.id = "reloadBtn";
+      btn.textContent = "再読み込み";
+      btn.style.background = "#555";
+      btn.style.marginLeft = "8px";
+      exitPanel.insertBefore(btn, exitBtn);
+      reloadBtn = btn;
+    }
+    if (reloadBtn) reloadBtn.addEventListener("click", () => location.reload());
+    exitBtn.addEventListener("click", async () => {
+      try {
+        const show = openLog.checked ? 1 : 0;
+        const keep = (keepCoeiro && keepCoeiro.checked) ? 1 : 0;
+        await fetch(`/api/exit?show_log=${show}&keep_coeiro=${keep}`, { method: "GET" });
+      } finally {
+        window.open("", "_self");
+        window.close();
+      }
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,59 @@
+# Docker Compose v3.9 — Shisaku + COEIROINK + Ollama 統合スタック
+# Devモード：Shisakuホットリロード有効
+# 2025-10-12
+
+services:
+  shisaku:
+    build:
+      context: ./shisaku
+      dockerfile: Dockerfile.dev   # ← 開発専用Dockerfileを使うように変更
+    container_name: shisaku
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./shisaku:/app             # ← ソースをマウントして即反映
+    depends_on:
+      coeiroink:
+        condition: service_started
+      ollama:
+        condition: service_started
+    environment:
+      - COEIROINK_URL=http://coeiroink:80
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    command: uvicorn backend.app:app --host 0.0.0.0 --reload  # ← ホットリロード
+    restart: unless-stopped
+
+  # COEIROINK (GPU版) - ローカルビルド
+  coeiroink:
+    build: ./COEIROINK-with-Docker
+    container_name: coeiroink
+    ports:
+      - "50032:80"
+    volumes:
+      - ./COEIROINK-with-Docker/speaker_info:/app/speaker_info
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    restart: unless-stopped
+
+  # Ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
