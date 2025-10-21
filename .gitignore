@@ -11,9 +11,13 @@ COEIROINK-with-Docker/
 __pycache__/
 *.pyc
 
-# ✅ プロジェクト「Shisaku」の出力データ（GitHubに公開不要な一時成果物）
+# Shisaku outputs
 shisaku/outputs/
 shisaku/chat_history.txt
+
+# Windows Zone Identifier
+*:Zone.Identifier
+
 
 # ✅ Windowsのダウンロードファイルなどに付くセキュリティ属性（Gitでは無意味）
 *.Zone.Identifier
