@@ -1,0 +1,160 @@
+# VRM Talk 統合環境
+
+キャラクター（VRM）とリアルタイムで会話するための、`shisaku`・`COEIROINK`・`Ollama` を連携させたフルスタック環境です。
+**COEIROINKのDocker環境は、[kuwacom/COEIROINK-with-Docker](https://github.com/kuwacom/COEIROINK-with-Docker) をベースに構築しています。**
+
+## ✨ 機能紹介
+
+-   **デュアルAIエンジン:** 高性能なクラウドAI (Google Gemini) と、プライベートなローカルAI (Ollama) を、会話の目的に応じて切り替えられます。
+-   **感情連動型の音声合成:** AIが会話の文脈や感情を読み取り、COEIROINKの多彩な音声スタイル（喜び、しょんぼり、ごきげん等）を自動で選択。表現力豊かな声でキャラクターが話します。
+-   **ダイナミックなアバター動作:** 会話内容に応じてキャラクターの首の動きなどを自動生成し、生き生きとしたインタラクションを実現します。
+-   **音声入力対応:** マイクに向かって話しかけることで、文字を打たずに会話を進められます。
+-   **Dockerによる簡単構築:** Docker Compose を使うことで、複雑な環境をコマンド一つで再現できます。
+
+## 1. 前提条件
+
+この環境を動作させるには、お使いのPCに以下のソフトウェアがインストールされている必要があります。
+
+-   **Docker と Docker Compose**
+-   **NVIDIA製GPU** と、対応するグラフィックドライバ
+-   **NVIDIA Container Toolkit:** DockerコンテナからGPUを利用するために必須です。
+    -   [インストールガイド](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+-   **Git:** このリポジトリをクローンするために使用します。
+-   **(WSL2ユーザー向け)** WSL2のメモリ割り当てが少ないと、Ollamaの動作が極端に遅くなる場合があります。`%userprofile%` フォルダに `.wslconfig` ファイルを作成し、十分なメモリを割り当てることを推奨します。
+    ```
+    [wsl2]
+    memory=16GB
+    ```
+    設定後は `wsl --shutdown` でWSL2を再起動してください。
+
+## 2. 環境構築の手順
+
+### ステップ1: リポジトリをクローン
+
+```bash
+git clone https://github.com/Qoo2298/vrm_talk.git
+cd vrm_talk
+```
+
+### ステップ2: 環境変数の設定
+
+`.env` という名前のファイルを、この `README.md` と同じ階層に作成し、中にあなたのGemini APIキーを記述してください。
+
+```
+GEMINI_API_KEY=ここにあなたのAPIキーを貼り付け
+```
+
+### ステップ3: 不足しているアセットの配置 (重要！)
+
+このリポジトリには、ライセンスや容量の都合上、**モデル**や**エンジン**そのものは含まれていません。以下の手順で、必要なアセットをダウンロードし、正しい場所に配置してください。
+
+#### ① COEIROINK (エンジン & 音声モデル)
+
+1.  **COEIROINK公式サイト**から、**Linux GPU版**の本体をダウンロードします。
+    -   [https://coeiroink.com/download](https://coeiroink.com/download)
+2.  ダウンロードしたzipファイルを展開します。
+3.  展開したフォルダの中から、`engine` フォルダと `speaker_info` フォルダを、このリポジトリの `COEIROINK-with-Docker` フォルダの中にコピーします。
+
+    <details>
+    <summary>COEIROINKフォルダの最終的な構成（クリックで展開）</summary>
+
+    ```
+    vrm_talk/
+    ├── COEIROINK-with-Docker/
+    │   ├── engine/         <-- コピーしてきたエンジン
+    │   ├── speaker_info/   <-- コピーしてきた音声モデル
+    │   ├── Dockerfile
+    │   └── ... (その他のCOEIROINK関連ファイル)
+    └── ...
+    ```
+    </details>
+
+#### ② VRMモデル
+
+1.  お好きなVRMモデルを用意します。ここでは例として、以下のモデルを使用します。
+    -   [VRoid Hub: 「ここあ」](https://hub.vroid.com/characters/2275990777783334731/models/5546300287879782053)
+2.  ダウンロードしたVRMファイルを `avatar.vrm` という名前に変更します。
+3.  名前を変更した `avatar.vrm` ファイルを、`shisaku/frontend/` フォルダの中に配置します。
+
+#### ③ モーションデータ
+
+1.  `shisaku` が使用するモーションデータを、以下のBOOTHページからダウンロードします。
+    -   [BOOTH: VRMおしゃべりモーション](https://booth.pm/ja/items/5512385)
+2.  ダウンロードしたフォルダの中身を、すべて `shisaku/frontend/vrma/` フォルダの中に配置します。
+
+### 最終的なプロジェクトのディレクトリ構成
+
+すべてのファイルとアセットを配置すると、プロジェクトのトップレベルは以下のようになります。
+
+```
+vrm_talk/
+├── COEIROINK-with-Docker/  # COEIROINKエンジンとモデル
+├── ollama/                 # Ollamaのデータボリューム
+├── shisaku/                # shisakuアプリケーション本体
+│   ├── backend/
+│   ├── frontend/
+│   │   ├── avatar.vrm      # 配置したVRMモデル
+│   │   └── vrma/           # 配置したモーションデータ
+│   └── ...
+├── .env                    # 環境変数ファイル
+├── .gitignore              # Gitの無視設定
+├── docker-compose.yml      # Docker Compose設定ファイル
+└── README.md               # この説明ファイル
+```
+
+### ステップ4: コンテナのビルドと起動
+
+すべてのアセットを配置したら、以下のコマンドで3つのコンテナをまとめてビルドし、バックグラウンドで起動します。
+
+```bash
+docker compose up -d --build
+```
+
+### ステップ5: Ollama AIモデルのダウンロード
+
+コンテナは起動しましたが、まだOllamaの中にAIモデルが入っていません。
+以下のコマンドを実行して、`shisaku` が使用する2つのモデルをダウンロードしてください。（完了まで少し時間がかかります）
+
+```bash
+# 軽量モデル (gemma3:4b)
+docker compose exec ollama ollama pull gemma3:4b
+
+# 高性能モデル (gemma3:12b)
+docker compose exec ollama ollama pull gemma3:12b
+```
+
+## 3. アプリケーションの使用方法
+
+全てのセットアップが完了したら、以下のURLにブラウザでアクセスしてください。
+
+-   **メイン画面:** `http://localhost:8000`
+
+---
+各APIサーバーの動作確認は、以下のURLから行えます。
+
+-   **COEIROINK API:** `http://localhost:50032`
+-   **Ollama API:** `http://localhost:11434`
+
+### ネットワークアクセスについて (重要！)
+
+デフォルトの `docker-compose.yml` の設定 (`ports: - "8000:8000"`) では、アプリケーションは**そのPC自身 (localhost)** からのアクセスのみを受け付けます。
+
+-   **同じLAN内の他のデバイス (スマホ、別のPCなど) からアクセスしたい場合:**
+    `docker-compose.yml` 内の各サービスの `ports` 設定を、以下のように変更してください。
+    ```yaml
+    ports:
+      - "0.0.0.0:8000:8000" # 例: shisakuサービスの場合
+    ```
+    `0.0.0.0` を追加することで、そのPCのすべてのネットワークインターフェースからのアクセスを受け付けるようになります。変更後は `docker compose up -d --force-recreate` でコンテナを再作成してください。
+
+-   **インターネット (グローバル) からアクセスしたい場合:**
+    `0.0.0.0` の設定に加えて、以下の設定が必要です。
+    1.  **ルーターのポートフォワーディング:** インターネットの出入り口にあるルーターで、外部からのアクセスをサーバーの該当ポートに転送する設定が必要です。
+    2.  **サーバーのファイアウォール設定:** サーバー自身のファイアウォールで、該当ポートへのアクセスを許可する設定が必要です。
+
+    これらの設定を行わない限り、`0.0.0.0` に設定してもインターネットから直接公開されることはありません。
+
+## 4. トラブルシューティング
+
+-   **コンテナが起動しない:** `docker compose up` を `-d` なしで実行すると、詳細なログを確認できます。ポートの競合（`address already in use`）が起きている場合は、他のアプリが同じポートを使っていないか確認するか、`docker-compose.yml` の `ports` の設定を変更してください。
+-   **Ollamaの応答が異常に遅い:** WSL2のメモリ不足が考えられます。「前提条件」の `.wslconfig` の設定を確認してください。
