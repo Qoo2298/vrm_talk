@@ -1,17 +1,19 @@
-# Environments
+# ✅ 環境変数ファイル（APIキーなどが含まれる可能性があるので絶対に除外）
 .env
 
-# Ollama data
+# ✅ Ollamaのモデルなどの保存ディレクトリ（巨大ファイルやライセンス問題あり）
 ollama/
 
-# COEIROINK data (contains large models)
+# ✅ COEIROINKの実行ファイル・モデルなど（再配布不可の可能性あり）
 COEIROINK-with-Docker/
 
-# Python
+# ✅ Pythonのキャッシュファイル（自動生成されるものなので不要）
 __pycache__/
 *.pyc
 
-# Shisaku outputs
+# ✅ プロジェクト「Shisaku」の出力データ（GitHubに公開不要な一時成果物）
 shisaku/outputs/
 shisaku/chat_history.txt
 
+# ✅ Windowsのダウンロードファイルなどに付くセキュリティ属性（Gitでは無意味）
+*.Zone.Identifier
