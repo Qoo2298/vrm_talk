@@ -42,7 +42,7 @@ const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerH
 
 // 初期カメラを少し下げる（元 1.45 → 1.2）
 
-camera.position.set(0, 1.2, 2.2);
+camera.position.set(0, 1.7, 1.5);
 
 const DISPLAY_MODE_CLASSES = ["auto", "pc", "mobile"];
 
@@ -131,7 +131,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 
 // 初期ターゲットも少し下げる（元 1.35 → 1.15）
 
-controls.target.set(0, 1.15, 0);
+controls.target.set(0, 1.05, 0);
 
 controls.enableDamping = true;
 
@@ -141,19 +141,61 @@ controls.minPolarAngle = Math.PI * 0.25;
 
 controls.maxPolarAngle = Math.PI * 0.85;
 
-controls.minDistance   = 1.2;
+controls.minDistance   = 0.8;
 
 controls.maxDistance   = 3.5;
 
 controls.update();
 
-
+const CAM_SETTINGS_KEY = "vrm_cam_settings";
 
 // 初期カメラ位置とターゲットを保存
+let initialCameraPos = new THREE.Vector3();
+let initialControlsTarget = new THREE.Vector3();
+let hasCustomCameraSettings = false;
 
-const initialCameraPos    = camera.position.clone();
+function saveCameraSettings() {
+  const settings = {
+    pos: camera.position.toArray(),
+    tgt: controls.target.toArray(),
+  };
+  initialCameraPos.copy(camera.position);
+  initialControlsTarget.copy(controls.target);
+  localStorage.setItem(CAM_SETTINGS_KEY, JSON.stringify(settings));
+  hasCustomCameraSettings = true;
+}
 
-const initialControlsTarget = controls.target.clone();
+function loadCameraSettings() {
+  const savedSettings = localStorage.getItem(CAM_SETTINGS_KEY);
+  hasCustomCameraSettings = Boolean(savedSettings);
+  if (savedSettings) {
+    try {
+      const settings = JSON.parse(savedSettings);
+      if (Array.isArray(settings.pos) && settings.pos.length === 3) {
+        initialCameraPos.fromArray(settings.pos);
+      } else {
+        initialCameraPos.set(0, 1.7, 1.5);
+      }
+      if (Array.isArray(settings.tgt) && settings.tgt.length === 3) {
+        initialControlsTarget.fromArray(settings.tgt);
+      } else {
+        initialControlsTarget.set(0, 1.05, 0);
+      }
+    } catch (e) {
+      console.error("Failed to load camera settings, using defaults.", e);
+      // デフォルト値にフォールバック
+      initialCameraPos.set(0, 1.7, 1.5);
+      initialControlsTarget.set(0, 1.05, 0);
+      hasCustomCameraSettings = false;
+    }
+  } else {
+    // 保存された設定がない場合は、現在のカメラ設定を初期値とする
+    initialCameraPos.copy(camera.position);
+    initialControlsTarget.copy(controls.target);
+    hasCustomCameraSettings = false;
+  }
+  resetCameraToInitial();
+}
 
 
 
@@ -165,7 +207,103 @@ function resetCameraToInitial() {
 
   controls.update();
 
+  updateCameraDebugPanel();
+
 }
+
+const cameraDebugPanel = document.getElementById("camera-debug-panel");
+const camPos = { x: document.getElementById("cam-pos-x"), y: document.getElementById("cam-pos-y"), z: document.getElementById("cam-pos-z") };
+const camTgt = { x: document.getElementById("cam-tgt-x"), y: document.getElementById("cam-tgt-y"), z: document.getElementById("cam-tgt-z") };
+const cameraDistanceEl = document.getElementById("cam-dist-val");
+const fixInitialCamBtn = document.getElementById("fixInitialCamBtn");
+const resetCamBtn = document.getElementById("resetCamBtn");
+const closeCameraSettingsBtn = document.getElementById("close-camera-settings");
+
+const settingsToggleBtn = document.getElementById("settings-toggle");
+const mainSettingsPanel = document.getElementById("main-settings-panel");
+const openCameraSettingsBtn = document.getElementById("open-camera-settings");
+const openLogModalBtn = document.getElementById("open-log-modal");
+const openLayoutEditorBtn = document.getElementById("open-layout-editor");
+
+function updateCameraDebugPanel() {
+  if (!cameraDebugPanel || cameraDebugPanel.hidden) return;
+
+  const pos = camera.position;
+  const tgt = controls.target;
+
+  if (camPos.x) camPos.x.value = pos.x.toFixed(3);
+  if (camPos.y) camPos.y.value = pos.y.toFixed(3);
+  if (camPos.z) camPos.z.value = pos.z.toFixed(3);
+
+  if (camTgt.x) camTgt.x.value = tgt.x.toFixed(3);
+  if (camTgt.y) camTgt.y.value = tgt.y.toFixed(3);
+  if (camTgt.z) camTgt.z.value = tgt.z.toFixed(3);
+
+  if (cameraDistanceEl) {
+    const dist = pos.distanceTo(tgt);
+    cameraDistanceEl.textContent = dist.toFixed(3);
+  }
+}
+
+function updateCameraFromInputs() {
+  const newPosX = parseFloat(camPos.x.value) || 0;
+  const newPosY = parseFloat(camPos.y.value) || 0;
+  const newPosZ = parseFloat(camPos.z.value) || 0;
+  camera.position.set(newPosX, newPosY, newPosZ);
+
+  const newTgtX = parseFloat(camTgt.x.value) || 0;
+  const newTgtY = parseFloat(camTgt.y.value) || 0;
+  const newTgtZ = parseFloat(camTgt.z.value) || 0;
+  controls.target.set(newTgtX, newTgtY, newTgtZ);
+
+  controls.update();
+  updateCameraDebugPanel();
+}
+
+Object.values(camPos).forEach(el => el?.addEventListener("input", updateCameraFromInputs));
+Object.values(camTgt).forEach(el => el?.addEventListener("input", updateCameraFromInputs));
+
+if (fixInitialCamBtn) {
+  fixInitialCamBtn.addEventListener("click", () => {
+    saveCameraSettings();
+    updateCameraDebugPanel();
+    fixInitialCamBtn.textContent = "固定しました！";
+    setTimeout(() => { fixInitialCamBtn.textContent = "初期位置を固定"; }, 1500);
+  });
+}
+
+if (resetCamBtn) {
+  resetCamBtn.addEventListener("click", resetCameraToInitial);
+}
+
+if (settingsToggleBtn) {
+  settingsToggleBtn.addEventListener("click", () => {
+    if (mainSettingsPanel) mainSettingsPanel.hidden = !mainSettingsPanel.hidden;
+  });
+}
+
+if (openCameraSettingsBtn) {
+  openCameraSettingsBtn.addEventListener("click", () => {
+    if (cameraDebugPanel) cameraDebugPanel.hidden = false;
+    if (mainSettingsPanel) mainSettingsPanel.hidden = true;
+    updateCameraDebugPanel();
+  });
+}
+
+if (closeCameraSettingsBtn) {
+  closeCameraSettingsBtn.addEventListener("click", () => {
+    if (cameraDebugPanel) cameraDebugPanel.hidden = true;
+  });
+}
+
+if (openLayoutEditorBtn) {
+  openLayoutEditorBtn.addEventListener("click", () => {
+    if (mainSettingsPanel) mainSettingsPanel.hidden = true;
+    enterLayoutEditMode();
+  });
+}
+
+loadCameraSettings();
 
 
 
@@ -231,6 +369,10 @@ function setVRMStatus(text) {
 }
 
 function frameVRM(root) {
+  if (hasCustomCameraSettings) {
+    controls.update();
+    return;
+  }
   const box = new THREE.Box3().setFromObject(root);
   if (!box.isEmpty()) {
     const size = new THREE.Vector3();
@@ -604,21 +746,11 @@ function setSpeed(s) {
 
 
 function playMotion() {
-
   if (!currentAction) return;
 
-  // 再生開始時にカメラを初期位置へ戻す
-
-  resetCameraToInitial();
-
-
-
   isPlayingMotion = true;
-
   currentAction.reset();
-
   currentAction.play();
-
 }
 
 
@@ -1026,15 +1158,698 @@ animate();
 window.addEventListener("resize", () => {
   updateCanvasSize();
   syncAutoMode();
+  updateCameraDebugPanel();
 });
 
 window.addEventListener("orientationchange", () => {
   setTimeout(() => {
     updateCanvasSize();
     syncAutoMode();
+    updateCameraDebugPanel();
   }, 200);
 });
 
+// controlsが変更されたときにデバッグパネルを更新
+controls.addEventListener("change", () => {
+  updateCameraDebugPanel();
+});
+
+
+
+/* ==========================
+
+   レイアウト編集モード
+
+========================== */
+
+const layoutEditToggle = document.getElementById("layout-edit-toggle");
+const layoutEditorPanel = document.getElementById("layout-editor-panel");
+const layoutScaleInput = document.getElementById("layout-scale");
+const layoutScaleValue = document.getElementById("layout-scale-value");
+const layoutLeftInput = document.getElementById("layout-left");
+const layoutTopInput = document.getElementById("layout-top");
+const layoutWidthInput = document.getElementById("layout-width");
+const layoutHeightInput = document.getElementById("layout-height");
+const layoutResetCurrentBtn = document.getElementById("layout-reset-current");
+const layoutResetAllBtn = document.getElementById("layout-reset-all");
+const layoutSaveBtn = document.getElementById("layout-save");
+const layoutEditorCloseBtn = document.getElementById("layout-editor-close");
+const layoutEditorTargetLabel = document.getElementById("layout-editor-target");
+const layoutEditorHeader = layoutEditorPanel ? layoutEditorPanel.querySelector(".layout-editor-header") : null;
+
+const LAYOUT_STORAGE_KEY = "ui-layout-config-v1";
+const MIN_LAYOUT_WIDTH = 140;
+const MIN_LAYOUT_HEIGHT = 90;
+const EDITABLE_UI_IDS = [
+  "ui",
+  "vrm-panel",
+  "style-bar",
+  "motion-bar",
+  "chat-box",
+  "chat-log",
+  "motion-toggle",
+  "log-toggle",
+  "exit-panel",
+  "camera-debug-panel"
+];
+
+const layoutDefaults = {};
+const resizeHandles = new Map();
+let layoutConfig = loadLayoutConfig();
+let layoutEditMode = false;
+let currentEditableEl = null;
+let dragState = null;
+let layoutEditorPanelDragState = null;
+
+function cleanupLayoutEditorPanelDragListeners(){
+  window.removeEventListener("pointermove", onLayoutEditorPanelDragMove);
+  window.removeEventListener("pointerup", onLayoutEditorPanelDragEnd);
+  window.removeEventListener("pointercancel", onLayoutEditorPanelDragEnd);
+}
+
+function onLayoutEditorPanelDragPointerDown(event){
+  if (!layoutEditMode || !layoutEditorPanel || event.button !== 0) return;
+  if (event.target.closest("button")) return;
+  const rect = layoutEditorPanel.getBoundingClientRect();
+  layoutEditorPanel.style.left = `${Math.round(rect.left)}px`;
+  layoutEditorPanel.style.top = `${Math.round(rect.top)}px`;
+  layoutEditorPanel.style.right = "auto";
+  layoutEditorPanel.style.bottom = "auto";
+  layoutEditorPanelDragState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    startLeft: rect.left,
+    startTop: rect.top,
+  };
+  cleanupLayoutEditorPanelDragListeners();
+  layoutEditorHeader?.setPointerCapture?.(event.pointerId);
+  window.addEventListener("pointermove", onLayoutEditorPanelDragMove);
+  window.addEventListener("pointerup", onLayoutEditorPanelDragEnd);
+  window.addEventListener("pointercancel", onLayoutEditorPanelDragEnd);
+  event.preventDefault();
+}
+
+function onLayoutEditorPanelDragMove(event){
+  if (!layoutEditorPanelDragState || event.pointerId !== layoutEditorPanelDragState.pointerId) return;
+  const dx = event.clientX - layoutEditorPanelDragState.startX;
+  const dy = event.clientY - layoutEditorPanelDragState.startY;
+  const nextLeft = layoutEditorPanelDragState.startLeft + dx;
+  const nextTop = layoutEditorPanelDragState.startTop + dy;
+  layoutEditorPanel.style.left = `${Math.round(nextLeft)}px`;
+  layoutEditorPanel.style.top = `${Math.round(nextTop)}px`;
+}
+
+function onLayoutEditorPanelDragEnd(event){
+  if (!layoutEditorPanelDragState || event.pointerId !== layoutEditorPanelDragState.pointerId) return;
+  layoutEditorHeader?.releasePointerCapture?.(layoutEditorPanelDragState.pointerId);
+  cleanupLayoutEditorPanelDragListeners();
+  layoutEditorPanelDragState = null;
+}
+
+function loadLayoutConfig() {
+  try {
+    const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    for (const id of Object.keys(parsed)) {
+      const entry = parsed[id] || {};
+      parsed[id] = {
+        top: Number(entry.top) || 0,
+        left: Number(entry.left) || 0,
+        width: entry.width != null ? Number(entry.width) : null,
+        height: entry.height != null ? Number(entry.height) : null,
+        scale: entry.scale != null ? Number(entry.scale) : 1,
+      };
+    }
+    return parsed;
+  } catch (err) {
+    console.warn("レイアウト情報の読み込みに失敗しました", err);
+    return {};
+  }
+}
+
+function saveLayoutConfig() {
+  try {
+    const serializable = {};
+    for (const id of Object.keys(layoutConfig)) {
+      const cfg = layoutConfig[id];
+      if (!cfg) continue;
+      updateDirtyFlag(id);
+      if (!cfg.dirty) continue;
+      serializable[id] = {
+        top: cfg.top,
+        left: cfg.left,
+        width: cfg.width ?? null,
+        height: cfg.height ?? null,
+        scale: cfg.scale ?? 1,
+      };
+    }
+    if (Object.keys(serializable).length) {
+      localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(serializable));
+    } else {
+      localStorage.removeItem(LAYOUT_STORAGE_KEY);
+    }
+  } catch (err) {
+    console.warn("レイアウト情報の保存に失敗しました", err);
+  }
+}
+
+function ensureLayoutConfig(el) {
+  if (!el || !el.id) return null;
+  const id = el.id;
+  const rect = el.getBoundingClientRect();
+  if (!layoutDefaults[id]) {
+    const computed = window.getComputedStyle(el);
+    layoutDefaults[id] = {
+      top: rect.top,
+      left: rect.left,
+      width: null,
+      height: null,
+      scale: 1,
+      baseWidth: rect.width,
+      baseHeight: rect.height,
+      baseTransform: computed.transform && computed.transform !== "none" ? computed.transform : "",
+      baseTransformOrigin: computed.transformOrigin || "",
+    };
+  }
+
+  if (!layoutConfig[id]) {
+    layoutConfig[id] = { ...layoutDefaults[id] };
+  }
+
+  const cfg = layoutConfig[id];
+  if (cfg.baseWidth == null) cfg.baseWidth = layoutDefaults[id].baseWidth;
+  if (cfg.baseHeight == null) cfg.baseHeight = layoutDefaults[id].baseHeight;
+  if (cfg.top == null) cfg.top = layoutDefaults[id].top;
+  if (cfg.left == null) cfg.left = layoutDefaults[id].left;
+  if (cfg.scale == null) cfg.scale = 1;
+  if (cfg.baseTransform == null) cfg.baseTransform = layoutDefaults[id].baseTransform || "";
+  if (cfg.baseTransformOrigin == null) cfg.baseTransformOrigin = layoutDefaults[id].baseTransformOrigin || "";
+  if (cfg.dirty == null) cfg.dirty = false;
+  updateDirtyFlag(id);
+  return cfg;
+}
+
+function applyLayoutToElement(el, cfg) {
+  if (!el || !cfg) return;
+  const id = el.id;
+  const style = el.style;
+  style.position = "fixed";
+  style.right = "auto";
+  style.bottom = "auto";
+
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1920;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1080;
+  const defaults = layoutDefaults[id] || {};
+  const rect = el.getBoundingClientRect();
+  const measuredWidth = rect.width || defaults.baseWidth || 0;
+  const measuredHeight = rect.height || defaults.baseHeight || 0;
+  const baseWidth = (cfg.width != null ? cfg.width : defaults.baseWidth != null ? defaults.baseWidth : measuredWidth) || 0;
+  const baseHeight = (cfg.height != null ? cfg.height : defaults.baseHeight != null ? defaults.baseHeight : measuredHeight) || 0;
+  const scale = cfg.scale ?? 1;
+  const effectiveWidth = Math.max(0, baseWidth * scale);
+  const effectiveHeight = Math.max(0, baseHeight * scale);
+
+  if (Number.isFinite(cfg.left)) {
+    const maxLeft = Math.max(0, viewportWidth - effectiveWidth);
+    const clampedLeft = Math.min(Math.max(cfg.left, 0), maxLeft);
+    cfg.left = clampedLeft;
+    style.left = `${Math.round(clampedLeft)}px`;
+  } else if (defaults.left != null) {
+    style.left = `${Math.round(defaults.left)}px`;
+  } else {
+    style.removeProperty("left");
+  }
+
+  if (Number.isFinite(cfg.top)) {
+    const maxTop = Math.max(0, viewportHeight - effectiveHeight);
+    const clampedTop = Math.min(Math.max(cfg.top, 0), maxTop);
+    cfg.top = clampedTop;
+    style.top = `${Math.round(clampedTop)}px`;
+  } else if (defaults.top != null) {
+    style.top = `${Math.round(defaults.top)}px`;
+  } else {
+    style.removeProperty("top");
+  }
+
+  const baseTransform = cfg.baseTransform && cfg.baseTransform !== "none" ? cfg.baseTransform : "";
+  const parts = [];
+  if (baseTransform) parts.push(baseTransform);
+  if (Math.abs(scale - 1) > 0.001) parts.push(`scale(${scale})`);
+  if (parts.length) {
+    style.transform = parts.join(" ");
+  } else {
+    style.removeProperty("transform");
+  }
+
+  if (Math.abs(scale - 1) > 0.001) {
+    style.transformOrigin = "top left";
+  } else if (cfg.baseTransformOrigin) {
+    style.transformOrigin = cfg.baseTransformOrigin;
+  } else {
+    style.removeProperty("transform-origin");
+  }
+
+  if (cfg.width && cfg.width > 0) style.width = `${Math.round(cfg.width)}px`;
+  else style.removeProperty("width");
+
+  if (cfg.height && cfg.height > 0) style.height = `${Math.round(cfg.height)}px`;
+  else style.removeProperty("height");
+}
+
+function updateDirtyFlag(id) {
+  const cfg = layoutConfig[id];
+  const defaults = layoutDefaults[id];
+  if (!cfg) return;
+  if (!defaults) {
+    cfg.dirty = true;
+    return;
+  }
+  const epsilon = 0.5;
+  const scaleEpsilon = 0.01;
+  const diffTop = Math.abs((cfg.top ?? 0) - (defaults.top ?? 0)) > epsilon;
+  const diffLeft = Math.abs((cfg.left ?? 0) - (defaults.left ?? 0)) > epsilon;
+  const diffWidth = (cfg.width ?? null) !== (defaults.width ?? null);
+  const diffHeight = (cfg.height ?? null) !== (defaults.height ?? null);
+  const diffScale = Math.abs((cfg.scale ?? 1) - (defaults.scale ?? 1)) > scaleEpsilon;
+  cfg.dirty = diffTop || diffLeft || diffWidth || diffHeight || diffScale;
+}
+
+function captureOriginalInlineStyles(el) {
+  if (!el || el.dataset.layoutOriginal) return;
+  const record = {
+    top: el.style.top || "",
+    left: el.style.left || "",
+    right: el.style.right || "",
+    bottom: el.style.bottom || "",
+    width: el.style.width || "",
+    height: el.style.height || "",
+    position: el.style.position || "",
+    transform: el.style.transform || "",
+    transformOrigin: el.style.transformOrigin || "",
+  };
+  el.dataset.layoutOriginal = JSON.stringify(record);
+}
+
+function restoreOriginalInlineStyles(el) {
+  if (!el || !el.dataset.layoutOriginal) return;
+  try {
+    const record = JSON.parse(el.dataset.layoutOriginal);
+    const props = ["top", "left", "right", "bottom", "width", "height", "position", "transform", "transformOrigin"];
+    for (const prop of props) {
+      const value = record[prop];
+      if (value) {
+        el.style[prop] = value;
+      } else {
+        el.style.removeProperty(prop.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`));
+      }
+    }
+  } catch (err) {
+    // ignore restore errors
+  }
+  delete el.dataset.layoutOriginal;
+}
+
+function applyStoredLayouts() {
+  for (const id of Object.keys(layoutConfig)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const cfg = ensureLayoutConfig(el);
+    if (!cfg) continue;
+    applyLayoutToElement(el, cfg);
+    updateDirtyFlag(id);
+  }
+}
+
+function updateLayoutEditorInputs(cfg) {
+  if (!layoutEditorPanel) return;
+  if (!cfg || !currentEditableEl) {
+    if (layoutEditorTargetLabel) layoutEditorTargetLabel.textContent = "なし";
+    if (layoutScaleInput) layoutScaleInput.value = "1";
+    if (layoutScaleValue) layoutScaleValue.textContent = "1.00";
+    if (layoutLeftInput) { layoutLeftInput.value = ""; layoutLeftInput.placeholder = ""; }
+    if (layoutTopInput) { layoutTopInput.value = ""; layoutTopInput.placeholder = ""; }
+    if (layoutWidthInput) layoutWidthInput.value = "";
+    if (layoutHeightInput) layoutHeightInput.value = "";
+    return;
+  }
+
+  if (layoutEditorTargetLabel) layoutEditorTargetLabel.textContent = currentEditableEl.id;
+  const defaults = layoutDefaults[currentEditableEl.id] || {};
+
+  const scale = cfg.scale ?? 1;
+  if (layoutScaleInput && document.activeElement !== layoutScaleInput) {
+    layoutScaleInput.value = scale.toFixed(2);
+  }
+  if (layoutScaleValue) layoutScaleValue.textContent = scale.toFixed(2);
+
+  if (layoutLeftInput && document.activeElement !== layoutLeftInput) {
+    layoutLeftInput.value = Number.isFinite(cfg.left) ? Math.round(cfg.left) : "";
+    if (defaults.left != null) layoutLeftInput.placeholder = Math.round(defaults.left);
+  }
+  if (layoutTopInput && document.activeElement !== layoutTopInput) {
+    layoutTopInput.value = Number.isFinite(cfg.top) ? Math.round(cfg.top) : "";
+    if (defaults.top != null) layoutTopInput.placeholder = Math.round(defaults.top);
+  }
+
+  if (layoutWidthInput && document.activeElement !== layoutWidthInput) {
+    layoutWidthInput.value = cfg.width != null ? Math.round(cfg.width) : "";
+    if (cfg.baseWidth) layoutWidthInput.placeholder = Math.round(cfg.baseWidth);
+  }
+  if (layoutHeightInput && document.activeElement !== layoutHeightInput) {
+    layoutHeightInput.value = cfg.height != null ? Math.round(cfg.height) : "";
+    if (cfg.baseHeight) layoutHeightInput.placeholder = Math.round(cfg.baseHeight);
+  }
+}
+
+function setCurrentEditable(el) {
+  if (currentEditableEl === el) {
+    updateLayoutEditorInputs(el ? ensureLayoutConfig(el) : null);
+    return;
+  }
+  if (currentEditableEl) currentEditableEl.classList.remove("layout-edit-selected");
+  currentEditableEl = el || null;
+  if (currentEditableEl) {
+    currentEditableEl.classList.add("layout-edit-selected");
+    const cfg = ensureLayoutConfig(currentEditableEl);
+    updateLayoutEditorInputs(cfg);
+  } else {
+    updateLayoutEditorInputs(null);
+  }
+}
+
+function attachResizeHandle(el) {
+  if (!el || resizeHandles.has(el.id)) return;
+  const handle = document.createElement("div");
+  handle.className = "layout-resize-handle";
+  handle.addEventListener("pointerdown", onResizePointerDown);
+  el.appendChild(handle);
+  resizeHandles.set(el.id, handle);
+}
+
+function detachResizeHandle(el) {
+  if (!el) return;
+  const handle = resizeHandles.get(el.id);
+  if (handle) {
+    handle.removeEventListener("pointerdown", onResizePointerDown);
+    handle.remove();
+    resizeHandles.delete(el.id);
+  }
+}
+
+function enterLayoutEditMode() {
+  if (layoutEditMode) return;
+  layoutEditMode = true;
+  document.body.classList.add("layout-editing");
+  if (layoutEditorPanel) layoutEditorPanel.hidden = false;
+
+  for (const id of EDITABLE_UI_IDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    captureOriginalInlineStyles(el);
+    ensureLayoutConfig(el);
+    el.dataset.layoutId = id;
+    el.classList.add("layout-editable-target");
+    el.addEventListener("pointerdown", onEditablePointerDown);
+    attachResizeHandle(el);
+  }
+
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", onPointerUp);
+
+  if (!currentEditableEl) {
+    const firstId = EDITABLE_UI_IDS.find((candidate) => document.getElementById(candidate));
+    if (firstId) setCurrentEditable(document.getElementById(firstId));
+  } else {
+    setCurrentEditable(currentEditableEl);
+  }
+
+}
+
+function exitLayoutEditMode() {
+  if (!layoutEditMode) return;
+  layoutEditMode = false;
+  document.body.classList.remove("layout-editing");
+  if (layoutEditorPanel) layoutEditorPanel.hidden = true;
+
+  for (const id of EDITABLE_UI_IDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const cfg = layoutConfig[id];
+    if (cfg) updateDirtyFlag(id);
+    el.removeEventListener("pointerdown", onEditablePointerDown);
+    el.classList.remove("layout-editable-target", "layout-edit-selected");
+    detachResizeHandle(el);
+    if (!cfg || !cfg.dirty) {
+      restoreOriginalInlineStyles(el);
+      if (cfg) delete layoutConfig[id];
+    } else {
+      delete el.dataset.layoutOriginal;
+    }
+  }
+
+  if (layoutEditorPanelDragState) {
+    layoutEditorHeader?.releasePointerCapture?.(layoutEditorPanelDragState.pointerId);
+    cleanupLayoutEditorPanelDragListeners();
+    layoutEditorPanelDragState = null;
+  }
+
+  window.removeEventListener("pointermove", onPointerMove);
+  window.removeEventListener("pointerup", onPointerUp);
+  window.removeEventListener("pointercancel", onPointerUp);
+
+  currentEditableEl = null;
+  dragState = null;
+  saveLayoutConfig();
+}
+
+function toggleLayoutEditMode() {
+  if (layoutEditMode) exitLayoutEditMode();
+  else enterLayoutEditMode();
+}
+
+function startDrag(type, el, event) {
+  const cfg = ensureLayoutConfig(el);
+  if (!cfg) return;
+  setCurrentEditable(el);
+  dragState = {
+    type,
+    el,
+    id: el.id,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    startTop: cfg.top,
+    startLeft: cfg.left,
+    startWidth: cfg.width ?? cfg.baseWidth ?? el.getBoundingClientRect().width,
+    startHeight: cfg.height ?? cfg.baseHeight ?? el.getBoundingClientRect().height,
+    startScale: cfg.scale ?? 1,
+  };
+  el.setPointerCapture?.(event.pointerId);
+  event.preventDefault();
+}
+
+function onEditablePointerDown(event) {
+  if (!layoutEditMode || event.button !== 0) return;
+  if (event.target.classList.contains("layout-resize-handle")) return;
+  const el = event.currentTarget;
+  startDrag("move", el, event);
+}
+
+function onResizePointerDown(event) {
+  if (!layoutEditMode || event.button !== 0) return;
+  const el = event.currentTarget?.parentElement;
+  if (!el) return;
+  startDrag("resize", el, event);
+}
+
+function onPointerMove(event) {
+  if (!dragState || event.pointerId !== dragState.pointerId) return;
+  const cfg = layoutConfig[dragState.id];
+  if (!cfg) return;
+
+  const deltaX = event.clientX - dragState.startX;
+  const deltaY = event.clientY - dragState.startY;
+
+  if (dragState.type === "move") {
+    cfg.left = dragState.startLeft + deltaX;
+    cfg.top = dragState.startTop + deltaY;
+  } else if (dragState.type === "resize") {
+    const scale = cfg.scale ?? 1;
+    cfg.width = Math.max(MIN_LAYOUT_WIDTH, dragState.startWidth + deltaX / scale);
+    cfg.height = Math.max(MIN_LAYOUT_HEIGHT, dragState.startHeight + deltaY / scale);
+  }
+
+  applyLayoutToElement(dragState.el, cfg);
+  if (currentEditableEl && currentEditableEl.id === dragState.id) {
+    updateLayoutEditorInputs(cfg);
+  }
+  updateDirtyFlag(dragState.id);
+}
+
+function onPointerUp(event) {
+  if (!dragState || event.pointerId !== dragState.pointerId) return;
+  dragState.el.releasePointerCapture?.(dragState.pointerId);
+  const cfg = layoutConfig[dragState.id];
+  if (cfg) {
+    applyLayoutToElement(dragState.el, cfg);
+    saveLayoutConfig();
+  }
+  dragState = null;
+}
+
+function resetLayoutFor(id) {
+  const defaults = layoutDefaults[id];
+  const el = document.getElementById(id);
+  if (!defaults || !el) return;
+  layoutConfig[id] = { ...defaults };
+  const cfg = ensureLayoutConfig(el);
+  applyLayoutToElement(el, cfg);
+  updateDirtyFlag(id);
+  if (currentEditableEl && currentEditableEl.id === id) {
+    updateLayoutEditorInputs(cfg);
+  }
+}
+
+function registerLayoutEditorEvents() {
+  if (layoutEditToggle) {
+    layoutEditToggle.addEventListener("click", toggleLayoutEditMode);
+  }
+  if (layoutEditorHeader) {
+    layoutEditorHeader.addEventListener("pointerdown", onLayoutEditorPanelDragPointerDown);
+  }
+  if (layoutEditorCloseBtn) {
+    layoutEditorCloseBtn.addEventListener("click", exitLayoutEditMode);
+  }
+  if (layoutScaleInput) {
+    layoutScaleInput.addEventListener("input", () => {
+      if (!layoutEditMode || !currentEditableEl) return;
+      const cfg = ensureLayoutConfig(currentEditableEl);
+      const scale = parseFloat(layoutScaleInput.value);
+      if (!Number.isFinite(scale)) return;
+      cfg.scale = Math.min(2, Math.max(0.6, scale));
+      applyLayoutToElement(currentEditableEl, cfg);
+      updateLayoutEditorInputs(cfg);
+      updateDirtyFlag(currentEditableEl.id);
+    });
+    layoutScaleInput.addEventListener("change", saveLayoutConfig);
+  }
+
+  if (layoutLeftInput) {
+    layoutLeftInput.addEventListener("change", () => {
+      if (!layoutEditMode || !currentEditableEl) return;
+      const value = layoutLeftInput.value.trim();
+      const cfg = ensureLayoutConfig(currentEditableEl);
+      if (value === "") {
+        const defaults = layoutDefaults[currentEditableEl.id];
+        if (defaults && defaults.left != null) cfg.left = defaults.left;
+      } else {
+        const left = Number(value);
+        if (Number.isFinite(left)) cfg.left = left;
+      }
+      applyLayoutToElement(currentEditableEl, cfg);
+      updateLayoutEditorInputs(cfg);
+      updateDirtyFlag(currentEditableEl.id);
+      saveLayoutConfig();
+    });
+  }
+
+  if (layoutTopInput) {
+    layoutTopInput.addEventListener("change", () => {
+      if (!layoutEditMode || !currentEditableEl) return;
+      const value = layoutTopInput.value.trim();
+      const cfg = ensureLayoutConfig(currentEditableEl);
+      if (value === "") {
+        const defaults = layoutDefaults[currentEditableEl.id];
+        if (defaults && defaults.top != null) cfg.top = defaults.top;
+      } else {
+        const top = Number(value);
+        if (Number.isFinite(top)) cfg.top = top;
+      }
+      applyLayoutToElement(currentEditableEl, cfg);
+      updateLayoutEditorInputs(cfg);
+      updateDirtyFlag(currentEditableEl.id);
+      saveLayoutConfig();
+    });
+  }
+
+  if (layoutWidthInput) {
+    layoutWidthInput.addEventListener("change", () => {
+      if (!layoutEditMode || !currentEditableEl) return;
+      const value = layoutWidthInput.value.trim();
+      const cfg = ensureLayoutConfig(currentEditableEl);
+      if (value === "") {
+        cfg.width = null;
+      } else {
+        const width = Number(value);
+        if (Number.isFinite(width) && width >= MIN_LAYOUT_WIDTH) {
+          cfg.width = width;
+        }
+      }
+      applyLayoutToElement(currentEditableEl, cfg);
+      updateLayoutEditorInputs(cfg);
+      updateDirtyFlag(currentEditableEl.id);
+      saveLayoutConfig();
+    });
+  }
+
+  if (layoutHeightInput) {
+    layoutHeightInput.addEventListener("change", () => {
+      if (!layoutEditMode || !currentEditableEl) return;
+      const value = layoutHeightInput.value.trim();
+      const cfg = ensureLayoutConfig(currentEditableEl);
+      if (value === "") {
+        cfg.height = null;
+      } else {
+        const height = Number(value);
+        if (Number.isFinite(height) && height >= MIN_LAYOUT_HEIGHT) {
+          cfg.height = height;
+        }
+      }
+      applyLayoutToElement(currentEditableEl, cfg);
+      updateLayoutEditorInputs(cfg);
+      updateDirtyFlag(currentEditableEl.id);
+      saveLayoutConfig();
+    });
+  }
+
+  if (layoutResetCurrentBtn) {
+    layoutResetCurrentBtn.addEventListener("click", () => {
+      if (!currentEditableEl) return;
+      resetLayoutFor(currentEditableEl.id);
+      saveLayoutConfig();
+    });
+  }
+
+  if (layoutResetAllBtn) {
+    layoutResetAllBtn.addEventListener("click", () => {
+      for (const id of Object.keys(layoutDefaults)) {
+        resetLayoutFor(id);
+      }
+      saveLayoutConfig();
+      if (currentEditableEl) {
+        updateLayoutEditorInputs(ensureLayoutConfig(currentEditableEl));
+      } else {
+        updateLayoutEditorInputs(null);
+      }
+    });
+  }
+
+  if (layoutSaveBtn) {
+    layoutSaveBtn.addEventListener("click", () => {
+      saveLayoutConfig();
+    });
+  }
+}
+
+function setupLayoutEditor() {
+  applyStoredLayouts();
+  registerLayoutEditorEvents();
+}
+
+setupLayoutEditor();
 
 
 /* ==========================
@@ -1123,7 +1938,6 @@ if (!minimalModeEl && styleSelect) {
 }
 
 const chatLog = document.getElementById("chat-log");
-
 const logToggleBtn = document.getElementById("log-toggle");
 
 const logModal = document.getElementById("log-modal");
@@ -1162,7 +1976,7 @@ function updateMotionVisibility(){
 
   if (!motionBar || !motionToggleBtn) return;
 
-  motionBar.style.display = motionHidden ? 'none' : 'block';
+  motionBar.style.display = motionHidden ? 'none' : 'flex';
 
   motionToggleBtn.textContent = motionHidden ? 'モーション表示' : 'モーション隠す';
 
@@ -1338,11 +2152,11 @@ progressPanel.id = 'progress-panel';
 
 progressPanel.style.cssText = `
 
-  position: fixed; right: 10px; top: 110px; z-index: 1200;
+  position: fixed; right: 24px; top: 254px; z-index: 1200;
 
   background: rgba(0,0,0,0.65); color: #fff; padding: 8px 10px;
 
-  border-radius: 8px; font-size: 12px; min-width: 160px; display: none;
+  border-radius: 8px; font-size: 12px; min-width: 280px; display: none;
 
 `;
 
@@ -1843,6 +2657,7 @@ function setupVRMControls() {
   vrmStatusEl = document.getElementById("vrmStatus");
   vrmInputEl = document.getElementById("vrmInput");
   vrmResetEl = document.getElementById("vrmReset");
+  const vrmUploadBtn = document.getElementById("vrmUploadBtn");
   setVRMStatus(`VRM: ${currentVRMLabel}`);
 
   if (vrmInputEl) {
@@ -1859,6 +2674,12 @@ function setupVRMControls() {
       } finally {
         input.value = "";
       }
+    });
+  }
+
+  if (vrmUploadBtn) {
+    vrmUploadBtn.addEventListener("click", () => {
+      vrmInputEl.click(); // 隠されたファイル入力要素のクリックイベントをトリガー
     });
   }
 

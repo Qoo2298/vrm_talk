@@ -300,9 +300,9 @@ def local_reply_ollama_stream(
     extra = ""
     if "4b" in str(use_model).lower():
         extra = (
-            "\n出力ルール: 端的にまとめ、3〜6文で簡潔に。"
-            " 絵文字や記号は控えめに"
-            " です・ます調で丁寧に\n"
+            "\n出力ルール: 簡潔にし過ぎず、3〜6文で自然に。"
+            " 友達感覚で喋って。"
+            " です・ます調は極力使わないように。\n"
         )
     prompt = system_instruction + extra + "\n" + convo
 

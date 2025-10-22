@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
@@ -21,51 +21,41 @@
 <body class="auto">
   <div id="app-frame">
   <!-- 左上UI：録音開始/停止 -->
-  <div id="ui" style="position:fixed; top:10px; left:10px; z-index:1000;">
+  <div id="ui" class="glass-panel control-panel">
     <button id="recBtn">録音開始</button>
     <button id="stopBtn" disabled>録音停止</button>
   </div>
 
   <!-- VRM Upload Panel -->
-  <div id="vrm-panel" style="
-    position:fixed; top:70px; left:10px; z-index:1000;
-    background:rgba(0,0,0,0.6); color:#fff;
-    padding:8px; border-radius:8px; font-size:12px; max-width:220px;">
-    <div style="margin-bottom:6px;">VRM変更:</div>
-    <input type="file" id="vrmInput" accept=".vrm,model/gltf-binary" style="width:100%; font-size:12px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:6px;">
-      <button id="vrmReset" type="button" style="flex:1;">デフォルト</button>
+  <div id="vrm-panel" class="glass-panel stack-panel">
+    <div class="panel-title">VRM変更</div>
+    <input type="file" id="vrmInput" accept=".vrm,model/gltf-binary" style="display: none;">
+    <div class="panel-actions">
+      <button id="vrmUploadBtn" type="button">VRMをアップロード</button>
+      <button id="vrmReset" type="button">デフォルト</button>
     </div>
-    <div id="vrmStatus" style="margin-top:6px; line-height:1.4;">VRM: 読み込み待ち</div>
-  </div>
-
-  <!-- 追加: 左下 終了パネル -->
-  <div id="exit-panel">
-  <!-- 再生許可ボタンは不要になりました -->
-    <label><input type="checkbox" id="openLog"> 終了時にログを開く</label>
-    <button id="exitBtn">終了</button>
+    <div id="vrmStatus" class="panel-note">VRM: 読み込み待ち</div>
   </div>
 
   <!-- 右上モード選択バー＋ステータス -->
-  <div id="style-bar" style="
-    position: fixed; top: 10px; right: 10px; z-index: 1000;
-    background: rgba(0,0,0,0.6); color: #fff;
-    padding: 6px 8px; border-radius: 8px; font-size: 14px;">
-    <label for="styleSelect">モード:</label>
-    <select id="styleSelect">
-      <option value="auto">オート（自動）</option>
-      <option value="1">のーまる (1)</option>
-      <option value="7">いっしょうけんめい (7)</option>
-      <option value="40">ごきげん (40)</option>
-      <option value="45">どやがお (45)</option>
-      <option value="41">ふくれっつら (41)</option>
-      <option value="42">しょんぼり (42)</option>
-      <option value="43">ないしょばなし (43)</option>
-      <option value="44">ひっさつわざ (44)</option>
-      <option value="46">ぬむぬむ (46)</option>
-      <option value="47">ぱじゃまぱーてぃー (47)</option>
-    </select>
-    <div style="margin-top:6px">
+  <div id="style-bar" class="glass-panel style-panel">
+    <div class="panel-group">
+      <label for="styleSelect">モード:</label>
+      <select id="styleSelect">
+        <option value="auto">オート（自動）</option>
+        <option value="1">のーまる (1)</option>
+        <option value="7">いっしょうけんめい (7)</option>
+        <option value="40">ごきげん (40)</option>
+        <option value="45">どやがお (45)</option>
+        <option value="41">ふくれっつら (41)</option>
+        <option value="42">しょんぼり (42)</option>
+        <option value="43">ないしょばなし (43)</option>
+        <option value="44">ひっさつわざ (44)</option>
+        <option value="46">ぬむぬむ (46)</option>
+        <option value="47">ぱじゃまぱーてぃー (47)</option>
+      </select>
+    </div>
+    <div class="panel-group">
       <label for="chatEngineSelect">会話エンジン:</label>
       <select id="chatEngineSelect">
         <option value="cloud" selected>クラウド（Gemini）</option>
@@ -73,7 +63,7 @@
         <option value="local4">ローカル（Gemma3:4b）</option>
       </select>
     </div>
-    <div id="mode-bar" style="margin-top:6px;">
+    <div id="mode-bar" class="panel-group" hidden>
       <label for="modeSelect">表示モード:</label>
       <select id="modeSelect">
         <option value="auto" selected>自動</option>
@@ -81,15 +71,13 @@
         <option value="mobile">スマホモード</option>
       </select>
     </div>
-    <div id="autoTtsStatus" style="margin-top:6px; font-size:12px; opacity:0.9;">
+    <div id="autoTtsStatus" class="panel-note">
       System: 手動モード中
     </div>
   </div>
 
   <!-- 右下：モーション再生バー -->
-  <div id="motion-bar" style="
-    position: fixed; right: 10px; bottom: 10px; z-index: 1000;
-    background: rgba(0,0,0,0.6); color:#fff; padding:8px; border-radius:8px; font-size:13px;">
+  <div id="motion-bar" class="glass-panel motion-panel">
     <label>モーション:
       <select id="motionSelect">
   <option value="全身を見せる">全身を見せる</option>
@@ -99,25 +87,17 @@
   <option value="回る">回る</option>
   <option value="屈伸運動">屈伸運動</option>
   <option value="撃つ">撃つ</option>
-  <option value="首を振る">首を振る</option>
-  <option value="みんなの笑顔で彩る世界">みんなの笑顔で彩る世界</option>
-  <option value="みんな大好き素敵な世界">みんな大好き素敵な世界</option>
-  <option value="気高く可愛く煌めく世界">気高く可愛く煌めく世界</option>
-  <option value="輝んで紡いで繋がる世界">輝んで紡いで繋がる世界</option>
 </select>
     </label>
     <button id="motionPlay">再生</button>
     <button id="motionStop">停止</button>
     <label><input type="checkbox" id="motionLoop" checked> ループ</label>
-    <label>速度 <input id="motionSpeed" type="range" min="0.25" max="2.0" step="0.05" value="1.0"></label>
-    <div style="margin-top:6px">
+    <label class="range-label">速度 <input id="motionSpeed" type="range" min="0.25" max="2.0" step="0.05" value="1.0"></label>
+    <div class="panel-group">
       <input id="motionSeek" type="range" min="0" max="1" step="0.001" value="0">
       <span id="motion-time"><span id="motionCur">0.00</span> / <span id="motionDur">0.00</span>s</span>
     </div>
   </div>
-
-  <!-- モーションの表示/非表示トグル（ワンタップ） -->
-  <button id="motion-toggle" type="button">モーション隠す</button>
 
   <!-- 再生用オーディオ（口パクに接続） -->
   <audio id="replyAudio" crossorigin="anonymous" playsinline></audio>
@@ -126,20 +106,14 @@
   <canvas id="c"></canvas>
 
   <!-- 下部テキスト入力 -->
-  <div id="chat-box" style="
-    position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
-    background:rgba(0,0,0,0.6); padding:8px; border-radius:8px; z-index:1000;">
-    <input type="text" id="chat-input" placeholder="メッセージを入力..." style="width:250px;" />
+  <div id="chat-box" class="glass-panel chat-panel">
+    <input type="text" id="chat-input" placeholder="メッセージを入力..." />
     <button id="chat-send">送信</button>
     <button id="fullscreenToggle" title="全画面切替">全画面</button>
   </div>
 
   <!-- Conversation Log -->
-  <div id="chat-log" style="
-    position:fixed; bottom:60px; left:10px; right:10px;
-    max-height:40%; overflow-y:auto;
-    background:rgba(0,0,0,0.4); color:#fff;
-    padding:10px; border-radius:8px; font-size:14px;">
+  <div id="chat-log" class="glass-panel chat-log-panel">
   </div>
 
   <!-- Transcript Toggle -->
@@ -148,7 +122,7 @@
   <!-- Transcript Modal -->
   <div id="log-modal">
     <div class="log-box">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <div class="log-box__header">
         <div>セリフ一覧</div>
         <button id="log-close" type="button">閉じる</button>
       </div>
@@ -156,8 +130,80 @@
     </div>
   </div>
   
-  <!-- 追加: 処理ステップ表示 -->
-  <div id="proc-steps" style="position:fixed; left:10px; top:120px; z-index:1000; background:rgba(0,0,0,0.6); color:#fff; padding:8px; border-radius:8px; font-size:12px; max-width: 200px;">
+  <div id="layout-editor-panel" class="glass-panel layout-editor-panel" hidden>
+    <div class="layout-editor-header">
+      <span id="layout-editor-title">編集対象: <strong id="layout-editor-target">なし</strong></span>
+      <button id="layout-editor-close" type="button">終了</button>
+    </div>
+    <div class="layout-editor-field">
+      <label for="layout-scale">拡大率</label>
+      <input id="layout-scale" type="range" min="0.6" max="2.0" step="0.05" value="1" />
+      <span id="layout-scale-value">1.00</span>
+    </div>
+    <div class="layout-editor-field">
+      <label for="layout-left">横位置</label>
+      <input id="layout-left" type="number" step="1" />
+      <span class="unit">px</span>
+    </div>
+    <div class="layout-editor-field">
+      <label for="layout-top">縦位置</label>
+      <input id="layout-top" type="number" step="1" />
+      <span class="unit">px</span>
+    </div>
+    <div class="layout-editor-field">
+      <label for="layout-width">横幅</label>
+      <input id="layout-width" type="number" min="120" step="1" />
+      <span class="unit">px</span>
+    </div>
+    <div class="layout-editor-field">
+      <label for="layout-height">縦幅</label>
+      <input id="layout-height" type="number" min="80" step="1" />
+      <span class="unit">px</span>
+    </div>
+    <div class="layout-editor-actions">
+      <button id="layout-reset-current" type="button">選択リセット</button>
+      <button id="layout-reset-all" type="button">全てリセット</button>
+      <button id="layout-save" type="button">保存</button>
+    </div>
+  </div>
+
+  <!-- レイアウト編集モードの開始/完了ボタン -->
+  <button id="layout-edit-toggle" type="button" hidden>編集モードを開始</button>
+
+  <!-- 新しい「各種設定」ボタン -->
+  <button id="settings-toggle" type="button">各種設定</button>
+
+  <!-- 新しい設定パネル -->
+  <div id="main-settings-panel" class="glass-panel stack-panel" hidden>
+    <button id="open-camera-settings" type="button">カメラ設定</button>
+    <button id="open-layout-editor" type="button">レイアウト編集</button>
+  </div>
+
+  <!-- 追加: カメラ設定値表示パネル -->
+  <div id="camera-debug-panel" class="glass-panel stack-panel" hidden>
+    <div class="panel-title camera-panel-header">
+      <span class="camera-panel-title">カメラ設定</span>
+      <div class="camera-panel-actions">
+        <button id="fixInitialCamBtn" type="button">初期位置を固定</button>
+        <button id="resetCamBtn" type="button">リセット</button>
+        <button id="close-camera-settings" type="button">閉じる</button>
+      </div>
+    </div>
+    <div class="camera-input-group">
+      <span class="camera-input-label">Position</span>
+      <input type="number" step="0.05" id="cam-pos-x">
+      <input type="number" step="0.05" id="cam-pos-y">
+      <input type="number" step="0.05" id="cam-pos-z">
+    </div>
+    <div class="camera-input-group">
+      <span class="camera-input-label">Target</span>
+      <input type="number" step="0.05" id="cam-tgt-x">
+      <input type="number" step="0.05" id="cam-tgt-y">
+      <input type="number" step="0.05" id="cam-tgt-z">
+    </div>
+    <div style="margin-top: 4px;">
+      <strong>Distance:</strong> <span id="cam-dist-val">0</span>
+    </div>
   </div>
 
   <!-- Timer Toggle (visible in minimal UI) -->
@@ -171,7 +217,6 @@
   <script>
     const exitBtn = document.getElementById("exitBtn");
     const openLog = document.getElementById("openLog");
-    // Inject optional controls: keep COEIROINK + reload
     const exitPanel = document.getElementById("exit-panel");
     let keepCoeiro = document.getElementById("keepCoeiro");
     if (!keepCoeiro && exitPanel) {
@@ -197,17 +242,18 @@
       reloadBtn = btn;
     }
     if (reloadBtn) reloadBtn.addEventListener("click", () => location.reload());
-    exitBtn.addEventListener("click", async () => {
-      try {
-        const show = openLog.checked ? 1 : 0;
-        const keep = (keepCoeiro && keepCoeiro.checked) ? 1 : 0;
-        await fetch(`/api/exit?show_log=${show}&keep_coeiro=${keep}`, { method: "GET" });
-      } finally {
-        window.open("", "_self");
-        window.close();
-      }
-    });
+    if (exitBtn) {
+      exitBtn.addEventListener("click", async () => {
+        try {
+          const show = openLog && openLog.checked ? 1 : 0;
+          const keep = keepCoeiro && keepCoeiro.checked ? 1 : 0;
+          await fetch(`/api/exit?show_log=${show}&keep_coeiro=${keep}`, { method: "GET" });
+        } finally {
+          window.open("", "_self");
+          window.close();
+        }
+      });
+    }
   </script>
-
 </body>
 </html>

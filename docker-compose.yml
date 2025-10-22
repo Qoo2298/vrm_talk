@@ -47,7 +47,10 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data:/root/.ollama
+      - ./ollama:/root/.ollama
+    environment:
+      - OLLAMA_FLASH_ATTENTION=true
+      - OLLAMA_GPU_LAYERS=25
     deploy:
       resources:
         reservations:
